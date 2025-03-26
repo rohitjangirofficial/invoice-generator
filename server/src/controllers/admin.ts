@@ -60,10 +60,17 @@ const loginAdmin = async (req: Request, res: Response, next: NextFunction) => {
       expiresIn: "1d",
     });
 
-    res.cookie("token", token).status(200).json({
-      message: "Login successful",
-      adminId: admin._id,
-    });
+    res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+      })
+      .status(200)
+      .json({
+        message: "Login successful",
+        adminId: admin._id,
+      });
   } catch (error) {
     next(error);
   }
