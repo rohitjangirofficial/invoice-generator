@@ -60,7 +60,14 @@ const loginAdmin = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
         const token = jsonwebtoken_1.default.sign({ _id: admin._id }, config_1.default.jwtSecret, {
             expiresIn: "1d",
         });
-        res.cookie("token", token).status(200).json({
+        res
+            .cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+        })
+            .status(200)
+            .json({
             message: "Login successful",
             adminId: admin._id,
         });
