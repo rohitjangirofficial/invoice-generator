@@ -33,11 +33,12 @@ import {
   RefreshCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import axios from "axios";
+// import axios from "axios";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Controller, useForm } from "react-hook-form";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import toast from "react-hot-toast";
 import API from "@/api";
 
@@ -114,7 +115,7 @@ const InvoiceCreation = () => {
 
   useEffect(() => {
     if (selectedCustomer) {
-      setFormValue("currentReading", selectedCustomer.currentReading, {
+      setFormValue("previousReading", selectedCustomer.currentReading, {
         shouldValidate: true,
       });
     }
@@ -122,39 +123,91 @@ const InvoiceCreation = () => {
 
   const handleGenerateInvoice = async (data: IInvoiceForm) => {
     try {
+      // Calculations
       const netPayableReading =
         data.currentReading - data.previousReading - data.freeCopiesCount;
       const total = netPayableReading * data.ratePerReading + data.rentAmount;
-
       const IGST = parseFloat((total * 0.18).toFixed(2));
       const CGST = parseFloat((total * 0.09).toFixed(2));
       const SGST = parseFloat((total * 0.09).toFixed(2));
 
+      // Initialize jsPDF
       const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text("Invoice", 20, 20);
 
+      // Company Details
+      doc.addImage("logo.jpg", "JPEG", 20, 10, 30, 30);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text("ANDi Software Solutions", 180, 20, { align: "right" });
+      doc.text("Panipat, Haryana 132103", 180, 25, {
+        align: "right",
+      });
+      doc.text("Phone: +91-7015574125", 180, 30, { align: "right" });
+      doc.text("Email: andisoftwaresolutions@gmail.com", 180, 35, {
+        align: "right",
+      });
+
+      // Invoice Title
       doc.setFontSize(12);
-      doc.text(`Invoice No: ${data.invoiceNumber}`, 20, 30);
-      doc.text(`Date: ${data.date}`, 20, 40);
-      doc.text(`Customer: ${selectedCustomer?.name}`, 20, 50);
-      doc.text(`Current Reading: ${data.currentReading}`, 20, 60);
-      doc.text(`Previous Reading: ${data.previousReading}`, 20, 70);
-      doc.text(`Free Copies: ${data.freeCopiesCount}`, 20, 80);
-      doc.text(`Net Payable Reading: ${netPayableReading}`, 20, 90);
-      doc.text(`Rate Per Reading: ${data.ratePerReading.toFixed(2)}`, 20, 100);
-      doc.text(`Rent Amount: ${data.rentAmount.toFixed(2)}`, 20, 110);
-      doc.text(`Total (Before Tax): ${total.toFixed(2)}`, 20, 120);
+      doc.text("Invoice", 20, 50);
 
+      // Invoice Details
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Invoice No: ${data.invoiceNumber}`, 20, 60);
+      doc.text(`Date: ${data.date}`, 20, 65);
+      doc.text(
+        `Customer: ${selectedCustomer?.name || "Unknown Customer"}`,
+        20,
+        70,
+      );
+      doc.text(
+        `GST Number: ${selectedCustomer?.gstNumber || "Unknown GST Number"}`,
+        20,
+        75,
+      );
+
+      // Items Table (using autoTable for clarity)
+      autoTable(doc, {
+        startY: 85,
+        head: [["Description", "Value"]],
+        body: [
+          ["Current Reading", data.currentReading],
+          ["Previous Reading", data.previousReading],
+          ["Free Copies", data.freeCopiesCount],
+          ["Net Payable Reading", netPayableReading],
+          ["Rate Per Reading", data.ratePerReading.toFixed(2)],
+          ["Rent Amount", data.rentAmount.toFixed(2)],
+          ["Total (Before Tax)", total.toFixed(2)],
+        ],
+        theme: "striped",
+        headStyles: {
+          fillColor: [60, 60, 60],
+          textColor: [255, 255, 255],
+        },
+        bodyStyles: {
+          fontSize: 10,
+        },
+        columnStyles: {
+          0: { cellWidth: 100 },
+          1: { cellWidth: 80, halign: "right" },
+        },
+      });
+
+      // Taxes and Grand Total
+      doc.setFontSize(12);
       if (data.gstType === "CGST_SGST") {
-        doc.text(`CGST (9%): ${CGST}`, 20, 130);
-        doc.text(`SGST (9%): ${SGST}`, 20, 140);
-        doc.text(`Grand Total: ${(total + SGST + CGST).toFixed(2)}`, 20, 160);
+        doc.text(`CGST (9%): ${CGST.toFixed(2)}`, 20, 160);
+        doc.text(`SGST (9%): ${SGST.toFixed(2)}`, 20, 170);
+        doc.setFontSize(14);
+        doc.text(`Grand Total: ${(total + SGST + CGST).toFixed(2)}`, 20, 182);
       } else {
-        doc.text(`IGST (18%): ${IGST.toFixed(2)}`, 20, 130);
-        doc.text(`Grand Total: ${(total + IGST).toFixed(2)}`, 20, 160);
+        doc.text(`IGST (18%): ${IGST.toFixed(2)}`, 20, 160);
+        doc.setFontSize(14);
+        doc.text(`Grand Total: ${(total + IGST).toFixed(2)}`, 20, 172);
       }
 
+      // Save PDF
       doc.save(`invoice_${data.invoiceNumber}.pdf`);
 
       setGeneratingInvoice(true);
@@ -176,7 +229,6 @@ const InvoiceCreation = () => {
       });
 
       reset(); // Reset form after successful submission
-
       setGeneratingInvoice(false);
 
       if (resp.status === 201) {
@@ -186,7 +238,7 @@ const InvoiceCreation = () => {
       console.log(resp);
     } catch (error) {
       setGeneratingInvoice(false);
-      console.log(error);
+      console.error("Error generating invoice:", error);
     }
   };
 
@@ -491,6 +543,7 @@ const InvoiceCreation = () => {
                 <Input
                   className="text-sm font-medium"
                   type="number"
+                  step="0.01"
                   id="ratePerReading"
                   placeholder="e.g., 2.00"
                   {...register("ratePerReading", {
@@ -522,6 +575,7 @@ const InvoiceCreation = () => {
                   rules={{ required: "GST type is required" }}
                   render={({ field }) => (
                     <Select
+                      key={field.value}
                       onValueChange={(value: "IGST" | "CGST_SGST") =>
                         field.onChange(value)
                       }
