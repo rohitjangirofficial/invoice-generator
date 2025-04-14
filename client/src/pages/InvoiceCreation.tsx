@@ -189,8 +189,18 @@ const InvoiceCreation = () => {
           fontSize: 10,
         },
         columnStyles: {
-          0: { cellWidth: 100 },
+          0: { cellWidth: 100, halign: "left" },
           1: { cellWidth: 80, halign: "right" },
+        },
+        // Hook that call before style applied
+        willDrawCell: function (data) {
+          if (data.section === "head" && data.row.index === 0) {
+            if (data.column.index === 0) {
+              data.cell.styles.halign = "left"; // Description header
+            } else if (data.column.index === 1) {
+              data.cell.styles.halign = "right"; // Value header
+            }
+          }
         },
       });
 
@@ -459,6 +469,7 @@ const InvoiceCreation = () => {
                 <Input
                   className="text-sm font-medium"
                   type="number"
+                  disabled
                   id="previousReading"
                   placeholder="e.g., 1200"
                   {...register("previousReading", {
